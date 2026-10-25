@@ -1,5 +1,4 @@
 # EduTrace — APAAR ID-Based Student Data Management & Verification Platform
-### Smart India Hackathon 2026 | Problem Statement 26263
 **AICTE — Regulation Bureau | Signature: *Predict · Explain · Resolve***
 
 ---
@@ -93,7 +92,7 @@ The system includes pre-configured credentials across all 5 operational roles:
 ```bash
 git init
 git add .
-git commit -m "feat: complete EduTrace platform for SIH 2026 PS 26263"
+git commit -m "feat: complete EduTrace platform"
 git branch -M main
 git remote add origin https://github.com/<your-username>/<your-repo-name>.git
 git push -u origin main
