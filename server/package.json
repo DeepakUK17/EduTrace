@@ -12,6 +12,7 @@
     "test:coverage": "jest --coverage --forceExit",
     "migrate:dev": "npx prisma migrate dev",
     "migrate:deploy": "npx prisma migrate deploy",
+    "db:push": "npx prisma db push",
     "prisma:generate": "npx prisma generate",
     "prisma:studio": "npx prisma studio"
   },

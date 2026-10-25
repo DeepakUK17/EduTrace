@@ -10,6 +10,15 @@ async function main() {
     // Test database connection
     await prisma.$connect();
     logger.info('Database connection established successfully');
+
+    // Auto-seed empty database on first deployment
+    const userCount = await prisma.user.count().catch(() => 0);
+    if (userCount === 0 && process.env.AUTO_SEED !== 'false') {
+      logger.info('Empty database detected — running automated initial seeding...');
+      const { seedDatabase } = require('../prisma/seed');
+      await seedDatabase().catch((e) => logger.warn({ err: e.message }, 'Auto-seeding encountered an error'));
+      logger.info('Automated initial seeding completed successfully');
+    }
   } catch (err) {
     logger.warn({ err: err.message }, 'Database connection deferred or failed — check DATABASE_URL in .env');
   }

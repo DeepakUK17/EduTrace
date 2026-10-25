@@ -931,11 +931,15 @@ async function main() {
   console.log('  Student:           student@apextech.demo      / Demo@Stud1');
 }
 
-main()
-  .catch((e) => {
-    console.error('Seeding error:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error('Seeding error:', e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
+
+module.exports = { seedDatabase: main };
