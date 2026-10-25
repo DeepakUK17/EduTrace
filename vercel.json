@@ -1,31 +1,12 @@
 {
-  "version": 2,
-  "buildCommand": "cd client && npm install && npm run build",
-  "outputDirectory": "client/dist",
-  "installCommand": "cd client && npm install",
   "framework": "vite",
+  "buildCommand": "if [ -d client ]; then cd client && npm install && npm run build && cd .. && rm -rf dist && cp -r client/dist ./; else npm run build; fi",
+  "outputDirectory": "dist",
+  "installCommand": "if [ -d client ]; then cd client && npm install; else npm install; fi",
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://edutrace-api.onrender.com/api/$1"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-XSS-Protection", "value": "1; mode=block" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-      ]
-    }
-  ],
-  "env": {
-    "VITE_API_URL": "https://edutrace-api.onrender.com/api"
-  }
+  ]
 }
