@@ -1,0 +1,66 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: edutrace_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: edutrace
+      POSTGRES_PASSWORD: edutrace_dev_pass
+      POSTGRES_DB: edutrace
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edutrace"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: edutrace_server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://edutrace:edutrace_dev_pass@postgres:5432/edutrace?sslmode=disable
+      NODE_ENV: development
+      PORT: 5000
+      JWT_SECRET: local_dev_jwt_secret_change_in_production
+      SESSION_SECRET: local_dev_session_secret
+      APAAR_ENCRYPTION_KEY: local_dev_32byte_enckey_padding_xx
+      APAAR_HMAC_SECRET: local_dev_hmac_secret_change_this
+      FRONTEND_ORIGIN: http://localhost:5173
+      INTEGRATION_MODE: SIMULATED
+      ENABLE_DEMO_ACCOUNTS: "true"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    command: npm run dev
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: edutrace_client
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:

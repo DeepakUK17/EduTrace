@@ -1,0 +1,22 @@
+{
+  "name": "edutrace",
+  "version": "1.0.0",
+  "description": "EduTrace - APAAR ID-Based Student Data Management and Verification Platform (SIH 2026 PS 26263)",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "migrate": "cd server && npx prisma migrate deploy",
+    "seed": "cd server && npm run seed",
+    "test": "cd server && npm test",
+    "setup": "npm run install:all && npm run migrate && npm run seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

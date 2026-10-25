@@ -1,0 +1,781 @@
+// This is your Prisma schema file
+// EduTrace - SIH 2026 PS 26263
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Neon requires direct URL for migrations
+  directUrl = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  PLATFORM_ADMIN
+  INSTITUTION_ADMIN
+  DATA_OPERATOR
+  VERIFIER
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum InstitutionStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ProgrammeLevel {
+  UNDERGRADUATE
+  POSTGRADUATE
+  DIPLOMA
+  DOCTORATE
+  OTHER
+}
+
+enum ApaarStatus {
+  MISSING
+  INVALID_FORMAT
+  LOCAL_ACCEPTED
+  POTENTIAL_DUPLICATE
+  SIMULATED_PASS
+  SIMULATED_FAIL
+  PENDING_OFFICIAL
+  OFFICIALLY_UNAVAILABLE
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  WITHDRAWN
+  TRANSFERRED
+  ARCHIVED
+}
+
+enum AdmissionCategory {
+  GENERAL
+  OBC
+  SC
+  ST
+  EWS
+  NRI
+  OCI
+  FOREIGN_NATIONAL
+  SUPERNUMERARY
+  OTHER
+}
+
+enum ImportJobStatus {
+  PENDING
+  PROCESSING
+  DRY_RUN_COMPLETE
+  COMMITTED
+  FAILED
+  CANCELLED
+}
+
+enum ImportRowStatus {
+  ACCEPTED
+  REJECTED
+  FLAGGED
+  SKIPPED
+}
+
+enum ValidationSeverity {
+  INFORMATIONAL
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ValidationIssueStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  FALSE_POSITIVE
+  WONT_FIX
+}
+
+enum DuplicateMatchType {
+  EXACT_IDENTIFIER
+  CANDIDATE_NAME_DOB
+  CANDIDATE_MULTI_FIELD
+  CROSS_INSTITUTION_EXACT
+}
+
+enum DuplicateDisposition {
+  PENDING_REVIEW
+  CONFIRMED_DUPLICATE
+  LEGITIMATE_TRANSFER
+  NOT_A_MATCH
+  NEEDS_ESCALATION
+  FALSE_POSITIVE
+}
+
+enum CaseSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CaseStatus {
+  DETECTED
+  ASSIGNED
+  UNDER_REVIEW
+  AWAITING_CORRECTION
+  RESUBMITTED
+  RESOLVED
+  REJECTED
+  ESCALATED
+  FALSE_POSITIVE
+  CLOSED_WITH_EXPLANATION
+}
+
+enum CaseType {
+  VALIDATION_FAILURE
+  DUPLICATE_RECORD
+  CAPACITY_VIOLATION
+  MISSING_IDENTIFIER
+  INCONSISTENT_DATA
+  CROSS_INSTITUTION_CONFLICT
+  OTHER
+}
+
+enum VerificationTokenStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  USED
+}
+
+enum IntegrationMode {
+  SIMULATED
+  LIVE
+}
+
+enum IntegrationJobStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+enum AuditAction {
+  USER_LOGIN
+  USER_LOGOUT
+  USER_LOGIN_FAILED
+  USER_CREATED
+  USER_UPDATED
+  STUDENT_CREATED
+  STUDENT_UPDATED
+  STUDENT_ARCHIVED
+  ENROLLMENT_CREATED
+  ENROLLMENT_UPDATED
+  IMPORT_UPLOADED
+  IMPORT_COMMITTED
+  IMPORT_REJECTED
+  VALIDATION_RUN
+  VALIDATION_ISSUE_CREATED
+  CASE_CREATED
+  CASE_ASSIGNED
+  CASE_COMMENTED
+  CASE_STATUS_CHANGED
+  CASE_RESOLVED
+  CASE_ESCALATED
+  VERIFICATION_TOKEN_CREATED
+  VERIFICATION_TOKEN_ACCESSED
+  VERIFICATION_TOKEN_REVOKED
+  VERIFICATION_TOKEN_EXPIRED
+  REPORT_EXPORTED
+  INTAKE_RULE_PUBLISHED
+  INTEGRATION_JOB_STARTED
+  INTEGRATION_JOB_SUCCEEDED
+  INTEGRATION_JOB_FAILED
+  DUPLICATE_DISPOSITION_RECORDED
+  CONSENT_GRANTED
+  CONSENT_REVOKED
+}
+
+// ============================================================
+// CORE MODELS
+// ============================================================
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relations
+  importJobs         DataImportJob[]
+  assignedCases      ExceptionCase[]      @relation("CaseAssignee")
+  createdCases       ExceptionCase[]      @relation("CaseCreator")
+  caseComments       ExceptionComment[]
+  verificationTokens VerificationRequest[] @relation("TokenCreator")
+  auditEvents        AuditEvent[]
+  capacityScenarios  CapacityScenario[]
+
+  @@index([institutionId])
+  @@index([role])
+  @@index([email])
+  @@map("users")
+}
+
+model Institution {
+  id          String            @id @default(uuid())
+  name        String
+  code        String            @unique
+  type        String            // e.g., "Engineering", "Management", "Polytechnic"
+  address     String?
+  city        String?
+  state       String?
+  pincode     String?
+  status      InstitutionStatus @default(ACTIVE)
+  aicteCode   String?           @unique
+  website     String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  users                User[]
+  programmes           Programme[]
+  enrollments          Enrollment[]
+  importJobs           DataImportJob[]
+  intakeConfigurations IntakeConfiguration[]
+  capacityScenarios    CapacityScenario[]
+
+  @@index([status])
+  @@map("institutions")
+}
+
+model Programme {
+  id            String         @id @default(uuid())
+  institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id])
+  name          String
+  code          String
+  level         ProgrammeLevel
+  duration      Int            // in years
+  status        String         @default("ACTIVE")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relations
+  enrollments          Enrollment[]
+  intakeConfigurations IntakeConfiguration[]
+  capacityScenarios    CapacityScenario[]
+
+  @@unique([institutionId, code])
+  @@index([institutionId])
+  @@map("programmes")
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid())
+  label     String   @unique  // e.g., "2024-25"
+  startDate DateTime
+  endDate   DateTime
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  enrollments          Enrollment[]
+  intakeConfigurations IntakeConfiguration[]
+  importJobs           DataImportJob[]
+  capacityScenarios    CapacityScenario[]
+
+  @@map("academic_years")
+}
+
+model IntakeConfiguration {
+  id                    String      @id @default(uuid())
+  institutionId         String
+  institution           Institution @relation(fields: [institutionId], references: [id])
+  programmeId           String
+  programme             Programme   @relation(fields: [programmeId], references: [id])
+  academicYearId        String
+  academicYear          AcademicYear @relation(fields: [academicYearId], references: [id])
+  approvedIntake        Int
+  supernumeraryAllowance Int         @default(0)
+  nriLimit              Int         @default(0)
+  ociLimit              Int         @default(0)
+  foreignNationalLimit  Int         @default(0)
+  ewsReservation        Int         @default(0)
+  scReservation         Int         @default(0)
+  stReservation         Int         @default(0)
+  obcReservation        Int         @default(0)
+  ruleVersion           String      @default("v1.0")
+  sourceDocument        String?
+  publishedAt           DateTime?
+  publishedBy           String?
+  isActive              Boolean     @default(true)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@unique([institutionId, programmeId, academicYearId])
+  @@index([institutionId])
+  @@index([programmeId])
+  @@index([academicYearId])
+  @@map("intake_configurations")
+}
+
+// ============================================================
+// STUDENT & ENROLLMENT
+// ============================================================
+
+model Student {
+  id                  String      @id @default(uuid())
+  // APAAR identifier - stored encrypted, matched via HMAC
+  apaarStatus         ApaarStatus @default(MISSING)
+  apaarEncrypted      String?     // AES-256 encrypted APAAR ID (only if retention authorized)
+  apaarHmacToken      String?     // HMAC token for duplicate matching (NOT the raw ID)
+  apaarMasked         String?     // e.g., "DEMO-APAAR-****89" for display
+  apaarIsDemoMode     Boolean     @default(false) // true for DEMO-APAAR-* synthetic records
+  identityCheckStatus String      @default("NOT_CHECKED")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  // Relations
+  enrollments         Enrollment[]
+  duplicateMatchesA   DuplicateMatch[] @relation("RecordA")
+  duplicateMatchesB   DuplicateMatch[] @relation("RecordB")
+  verificationTokens  VerificationRequest[]
+  consentRecords      ConsentRecord[]
+
+  @@index([apaarHmacToken])
+  @@index([apaarStatus])
+  @@map("students")
+}
+
+model Enrollment {
+  id                  String           @id @default(uuid())
+  studentId           String
+  student             Student          @relation(fields: [studentId], references: [id])
+  institutionId       String
+  institution         Institution      @relation(fields: [institutionId], references: [id])
+  programmeId         String
+  programme           Programme        @relation(fields: [programmeId], references: [id])
+  academicYearId      String
+  academicYear        AcademicYear     @relation(fields: [academicYearId], references: [id])
+  // Student identity fields (institution-facing)
+  institutionStudentId String
+  firstName           String
+  lastName            String
+  email               String?
+  phone               String?
+  admissionDate       DateTime
+  admissionCategory   AdmissionCategory @default(GENERAL)
+  isNri               Boolean          @default(false)
+  isOci               Boolean          @default(false)
+  isForeignNational   Boolean          @default(false)
+  isSupernumerary     Boolean          @default(false)
+  status              EnrollmentStatus @default(ACTIVE)
+  sourceBatchId       String?
+  importBatch         DataImportJob?   @relation(fields: [sourceBatchId], references: [id])
+  provenance          String?          // "CSV_UPLOAD" | "MANUAL_ENTRY" | "API_SYNC"
+  isArchived          Boolean          @default(false)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  // Relations
+  validationIssues  ValidationIssue[]
+  exceptionCases    ExceptionCase[]
+  importRow         ImportRowResult?
+
+  @@index([institutionId])
+  @@index([programmeId])
+  @@index([academicYearId])
+  @@index([studentId])
+  @@index([status])
+  @@index([admissionCategory])
+  @@map("enrollments")
+}
+
+// ============================================================
+// BULK IMPORT
+// ============================================================
+
+model DataImportJob {
+  id             String          @id @default(uuid())
+  institutionId  String
+  institution    Institution     @relation(fields: [institutionId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear    @relation(fields: [academicYearId], references: [id])
+  uploadedById   String
+  uploadedBy     User            @relation(fields: [uploadedById], references: [id])
+  fileName       String
+  fileHash       String          // SHA-256 for idempotency
+  fileSizeBytes  Int
+  status         ImportJobStatus @default(PENDING)
+  totalRows      Int             @default(0)
+  acceptedRows   Int             @default(0)
+  rejectedRows   Int             @default(0)
+  flaggedRows    Int             @default(0)
+  skippedRows    Int             @default(0)
+  errorSummary   Json?
+  committedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  rows        ImportRowResult[]
+  enrollments Enrollment[]
+
+  @@index([institutionId])
+  @@index([status])
+  @@index([fileHash])
+  @@map("data_import_jobs")
+}
+
+model ImportRowResult {
+  id           String          @id @default(uuid())
+  jobId        String
+  job          DataImportJob   @relation(fields: [jobId], references: [id])
+  rowNumber    Int
+  status       ImportRowStatus
+  rawData      Json            // Original row data
+  errors       Json?           // Array of {field, code, message}
+  warnings     Json?
+  enrollmentId String?         @unique
+  enrollment   Enrollment?     @relation(fields: [enrollmentId], references: [id])
+  createdAt    DateTime        @default(now())
+
+  @@index([jobId])
+  @@index([status])
+  @@map("import_row_results")
+}
+
+// ============================================================
+// VALIDATION ENGINE
+// ============================================================
+
+model ValidationRule {
+  id              String             @id @default(uuid())
+  code            String             // e.g., "FMT-01", "DUP-02"
+  version         String             @default("v1.0")
+  name            String
+  description     String
+  layer           Int                // 1=Format, 2=Consistency, 3=CrossRecord, 4=External
+  severity        ValidationSeverity
+  category        String             // "FORMAT", "DUPLICATE", "CAPACITY", "CONSISTENCY"
+  logic           String?            // Human-readable rule logic description
+  recommendedAction String?
+  isActive        Boolean            @default(true)
+  effectiveFrom   DateTime           @default(now())
+  effectiveTo     DateTime?
+  publishedBy     String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  // Relations
+  issues ValidationIssue[]
+
+  @@unique([code, version])
+  @@index([code])
+  @@index([isActive])
+  @@map("validation_rules")
+}
+
+model ValidationIssue {
+  id              String                @id @default(uuid())
+  enrollmentId    String
+  enrollment      Enrollment            @relation(fields: [enrollmentId], references: [id])
+  ruleId          String
+  rule            ValidationRule        @relation(fields: [ruleId], references: [id])
+  ruleVersion     String
+  severity        ValidationSeverity
+  status          ValidationIssueStatus @default(OPEN)
+  fieldsAffected  String[]
+  evidence        Json?                 // { field: value, expected: value }
+  explanation     String                // Plain English explanation
+  recommendedAction String?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([enrollmentId])
+  @@index([ruleId])
+  @@index([severity])
+  @@index([status])
+  @@map("validation_issues")
+}
+
+// ============================================================
+// DUPLICATE DETECTION
+// ============================================================
+
+model DuplicateMatch {
+  id           String               @id @default(uuid())
+  recordAId    String
+  recordA      Student              @relation("RecordA", fields: [recordAId], references: [id])
+  recordBId    String
+  recordB      Student              @relation("RecordB", fields: [recordBId], references: [id])
+  matchType    DuplicateMatchType
+  matchScore   Float?               // Confidence 0-1
+  evidence     Json                 // { matchedFields: [], values: {} }
+  disposition  DuplicateDisposition @default(PENDING_REVIEW)
+  dispositionNote String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  isCrossInstitution Boolean        @default(false)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([disposition])
+  @@index([matchType])
+  @@index([recordAId])
+  @@index([recordBId])
+  @@map("duplicate_matches")
+}
+
+// ============================================================
+// EXCEPTION CASE MANAGEMENT
+// ============================================================
+
+model ExceptionCase {
+  id             String       @id @default(uuid())
+  type           CaseType
+  severity       CaseSeverity
+  status         CaseStatus   @default(DETECTED)
+  enrollmentId   String?
+  enrollment     Enrollment?  @relation(fields: [enrollmentId], references: [id])
+  title          String
+  description    String
+  evidence       Json?
+  assignedToId   String?
+  assignedTo     User?        @relation("CaseAssignee", fields: [assignedToId], references: [id])
+  createdById    String
+  createdBy      User         @relation("CaseCreator", fields: [createdById], references: [id])
+  dueDate        DateTime?
+  resolutionCode String?
+  resolutionNote String?
+  resolvedAt     DateTime?
+  isEscalated    Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  comments    ExceptionComment[]
+  statusHistory CaseStatusHistory[]
+
+  @@index([status])
+  @@index([severity])
+  @@index([assignedToId])
+  @@index([enrollmentId])
+  @@map("exception_cases")
+}
+
+model ExceptionComment {
+  id          String        @id @default(uuid())
+  caseId      String
+  case        ExceptionCase @relation(fields: [caseId], references: [id])
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id])
+  content     String
+  attachmentRef String?
+  createdAt   DateTime      @default(now())
+
+  @@index([caseId])
+  @@map("exception_comments")
+}
+
+model CaseStatusHistory {
+  id         String        @id @default(uuid())
+  caseId     String
+  case       ExceptionCase @relation(fields: [caseId], references: [id])
+  fromStatus CaseStatus?
+  toStatus   CaseStatus
+  actorId    String
+  reason     String?
+  createdAt  DateTime      @default(now())
+
+  @@index([caseId])
+  @@map("case_status_history")
+}
+
+// ============================================================
+// VERIFICATION
+// ============================================================
+
+model VerificationRequest {
+  id              String    @id @default(uuid())
+  tokenRef        String    @unique @default(uuid()) // Opaque reference in QR
+  tokenHash       String    @unique // SHA-256 of tokenRef for lookup
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id])
+  createdById     String
+  createdBy       User      @relation("TokenCreator", fields: [createdById], references: [id])
+  purpose         String
+  permittedFields String[]  // Which fields verifier can see
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  isSingleUse     Boolean   @default(false)
+  usedAt          DateTime?
+  status          VerificationTokenStatus @default(ACTIVE)
+  accessLog       Json?     // Array of access events
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tokenHash])
+  @@index([studentId])
+  @@index([status])
+  @@map("verification_requests")
+}
+
+model ConsentRecord {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  purpose     String
+  grantedAt   DateTime @default(now())
+  revokedAt   DateTime?
+  grantedBy   String   // "STUDENT" | "INSTITUTION" | "ADMIN"
+  createdAt   DateTime @default(now())
+
+  @@index([studentId])
+  @@map("consent_records")
+}
+
+// ============================================================
+// AUDIT
+// ============================================================
+
+model AuditEvent {
+  id            String      @id @default(uuid())
+  actorId       String?
+  actor         User?       @relation(fields: [actorId], references: [id])
+  actorRole     String?
+  action        AuditAction
+  entityType    String      // "Student", "Enrollment", "Case", etc.
+  entityId      String?
+  diff          Json?       // { before: {}, after: {} } - sensitive fields masked
+  reason        String?
+  correlationId String?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime    @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("audit_events")
+}
+
+// ============================================================
+// INTEGRATION
+// ============================================================
+
+model IntegrationConnector {
+  id              String          @id @default(uuid())
+  name            String          @unique
+  type            String          // "APAAR_ABC" | "INSTITUTION_ERP" | "AICTE"
+  mode            IntegrationMode @default(SIMULATED)
+  lastAttemptAt   DateTime?
+  lastSuccessAt   DateTime?
+  status          String          @default("IDLE") // "IDLE" | "RUNNING" | "ERROR" | "HEALTHY"
+  errorSummary    String?
+  retryCount      Int             @default(0)
+  recordsProcessed Int            @default(0)
+  recordsPending  Int             @default(0)
+  nextRetryAt     DateTime?
+  config          Json?           // Non-secret config (no credentials here)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  jobs IntegrationJob[]
+
+  @@map("integration_connectors")
+}
+
+model IntegrationJob {
+  id              String               @id @default(uuid())
+  connectorId     String
+  connector       IntegrationConnector @relation(fields: [connectorId], references: [id])
+  jobType         String               // "VALIDATE_IDENTIFIER" | "SYNC_RECORDS" | "FETCH_STATUS"
+  idempotencyKey  String               @unique
+  status          IntegrationJobStatus @default(PENDING)
+  attempts        Int                  @default(0)
+  maxAttempts     Int                  @default(3)
+  requestMeta     Json?                // Sanitized request info (no secrets)
+  responseMeta    Json?                // Sanitized response info
+  errorMessage    String?
+  nextRetryAt     DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  reconciliationItems ReconciliationItem[]
+
+  @@index([connectorId])
+  @@index([status])
+  @@map("integration_jobs")
+}
+
+model ReconciliationItem {
+  id          String         @id @default(uuid())
+  jobId       String
+  job         IntegrationJob @relation(fields: [jobId], references: [id])
+  status      String         // "MATCHED" | "UNMATCHED" | "CONFLICT" | "RESOLVED"
+  externalRef String?
+  localRef    String?
+  issue       String?
+  resolvedAt  DateTime?
+  createdAt   DateTime       @default(now())
+
+  @@index([jobId])
+  @@map("reconciliation_items")
+}
+
+// ============================================================
+// CAPACITY SIMULATION
+// ============================================================
+
+model CapacityScenario {
+  id              String      @id @default(uuid())
+  institutionId   String
+  institution     Institution @relation(fields: [institutionId], references: [id])
+  programmeId     String
+  programme       Programme   @relation(fields: [programmeId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id])
+  createdById     String
+  createdBy       User        @relation(fields: [createdById], references: [id])
+  name            String
+  description     String?
+  proposedAdmissions Json    // { category: count, ... }
+  simulatedResults   Json    // { current, proposed, remaining, rulesTriggered, ... }
+  ruleVersion     String
+  isArchived      Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([institutionId])
+  @@map("capacity_scenarios")
+}

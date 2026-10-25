@@ -1,0 +1,36 @@
+# Render Deployment Configuration
+# EduTrace Backend Service
+
+services:
+  - type: web
+    name: edutrace-api
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        sync: false   # Set in Render dashboard - Neon connection string
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: APAAR_ENCRYPTION_KEY
+        sync: false   # Set in Render dashboard
+      - key: APAAR_HMAC_SECRET
+        generateValue: true
+      - key: FRONTEND_ORIGIN
+        sync: false   # Set to your Vercel URL
+      - key: INTEGRATION_MODE
+        value: SIMULATED
+      - key: ENABLE_DEMO_ACCOUNTS
+        value: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
