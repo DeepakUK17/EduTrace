@@ -4,23 +4,21 @@ import { ShieldCheck, ArrowRight, UserCheck, Key, Lock, Sparkles, AlertCircle } 
 import { useAuth, DEMO_ACCOUNTS } from '../context/AuthContext';
 
 export default function Login() {
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, logout, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const queryParams = new URLSearchParams(location.search);
+  const isDenied = queryParams.get('denied') === 'true';
+  const isExpired = queryParams.get('expired') === 'true';
 
   const [email, setEmail] = useState('admin@edutrace.demo');
   const [password, setPassword] = useState('Demo@Admin1');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // If already authenticated, redirect
-  React.useEffect(() => {
-    if (isAuthenticated && user) {
-      if (user.role === 'PLATFORM_ADMIN') navigate('/platform-dashboard');
-      else if (user.role === 'VERIFIER') navigate('/verifier-dashboard');
-      else navigate('/institution-dashboard');
-    }
-  }, [isAuthenticated, user, navigate]);
+  // NOTE: We do NOT auto-redirect authenticated users on mount.
+  // This allows users to stay on /login to change personas or log in to a different account.
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
@@ -31,6 +29,7 @@ export default function Login() {
       const loggedUser = await login(email, password);
       if (loggedUser.role === 'PLATFORM_ADMIN') navigate('/platform-dashboard');
       else if (loggedUser.role === 'VERIFIER') navigate('/verifier-dashboard');
+      else if (loggedUser.role === 'STUDENT') navigate('/students');
       else navigate('/institution-dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid credentials. Please verify your email and password.');
@@ -102,6 +101,51 @@ export default function Login() {
             <div className="card border-0 shadow-sm rounded-4 p-4 p-md-5">
               <h4 className="fw-bold text-dark mb-1">Sign In</h4>
               <p className="text-muted small mb-4">Access the EduTrace regulatory portal</p>
+
+              {isDenied && (
+                <div className="alert alert-warning py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+                  <AlertCircle size={16} className="text-warning flex-shrink-0" />
+                  <span>Access Denied: Please sign in with an account authorized for that resource.</span>
+                </div>
+              )}
+
+              {isExpired && (
+                <div className="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+                  <AlertCircle size={16} className="text-info flex-shrink-0" />
+                  <span>Session expired: Please sign in again to continue.</span>
+                </div>
+              )}
+
+              {isAuthenticated && user && (
+                <div className="alert alert-light border py-2 px-3 small d-flex align-items-center justify-content-between mb-3">
+                  <div className="text-truncate me-2">
+                    Signed in: <strong>{user.email}</strong> ({user.role?.replace('_', ' ')})
+                  </div>
+                  <div className="d-flex gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary-et py-0 px-2"
+                      style={{ fontSize: '0.75rem' }}
+                      onClick={() => {
+                        if (user.role === 'PLATFORM_ADMIN') navigate('/platform-dashboard');
+                        else if (user.role === 'VERIFIER') navigate('/verifier-dashboard');
+                        else if (user.role === 'STUDENT') navigate('/students');
+                        else navigate('/institution-dashboard');
+                      }}
+                    >
+                      Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary py-0 px-2"
+                      style={{ fontSize: '0.75rem' }}
+                      onClick={logout}
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div className="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2 mb-3">

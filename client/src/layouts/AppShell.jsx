@@ -33,7 +33,13 @@ export default function AppShell() {
   };
 
   const handleRoleSwitch = async (roleName) => {
-    await switchDemoAccount(roleName);
+    const newUser = await switchDemoAccount(roleName);
+    if (newUser) {
+      if (newUser.role === 'PLATFORM_ADMIN') navigate('/platform-dashboard');
+      else if (newUser.role === 'VERIFIER') navigate('/verifier-dashboard');
+      else if (newUser.role === 'STUDENT') navigate('/students');
+      else navigate('/institution-dashboard');
+    }
   };
 
   return (
@@ -103,18 +109,18 @@ export default function AppShell() {
               </NavLink>
             )}
 
-            {hasRole('PLATFORM_ADMIN', 'INSTITUTION_ADMIN', 'DATA_OPERATOR') && (
-              <>
-                <NavLink to="/students" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                  <Users size={17} />
-                  <span>Student Records & APAAR</span>
-                </NavLink>
+            {hasRole('PLATFORM_ADMIN', 'INSTITUTION_ADMIN', 'DATA_OPERATOR', 'STUDENT') && (
+              <NavLink to="/students" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <Users size={17} />
+                <span>{user?.role === 'STUDENT' ? 'My Student Records' : 'Student Records & APAAR'}</span>
+              </NavLink>
+            )}
 
-                <NavLink to="/import" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                  <Upload size={17} />
-                  <span>Bulk CSV/Excel Import</span>
-                </NavLink>
-              </>
+            {hasRole('PLATFORM_ADMIN', 'INSTITUTION_ADMIN', 'DATA_OPERATOR') && (
+              <NavLink to="/import" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <Upload size={17} />
+                <span>Bulk CSV/Excel Import</span>
+              </NavLink>
             )}
 
             <div className="sidebar-section-title">Validation & Governance</div>

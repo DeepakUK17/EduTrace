@@ -38,17 +38,10 @@ function RequireAuth({ children, roles }) {
   }
 
   if (roles && !roles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login?denied=true" replace />;
   }
 
   return children;
-}
-
-function RoleBasedHome() {
-  const { user } = useAuth();
-  if (user?.role === 'PLATFORM_ADMIN') return <Navigate to="/platform-dashboard" replace />;
-  if (user?.role === 'VERIFIER') return <Navigate to="/verifier-dashboard" replace />;
-  return <Navigate to="/institution-dashboard" replace />;
 }
 
 export default function App() {
@@ -60,6 +53,9 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/verify/:tokenRef" element={<PublicVerify />} />
 
+          {/* Root URL always redirects directly to login */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
           {/* Protected Routes wrapped in AppShell */}
           <Route
             element={
@@ -68,26 +64,116 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route path="/" element={<RoleBasedHome />} />
-            <Route path="/platform-dashboard" element={<PlatformDashboard />} />
-            <Route path="/institution-dashboard" element={<InstitutionDashboard />} />
-            <Route path="/verifier-dashboard" element={<VerifierDashboard />} />
-            <Route path="/institutions" element={<InstitutionsList />} />
+            <Route
+              path="/platform-dashboard"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN']}>
+                  <PlatformDashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/institution-dashboard"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN', 'DATA_OPERATOR']}>
+                  <InstitutionDashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/verifier-dashboard"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'VERIFIER']}>
+                  <VerifierDashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/institutions"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN']}>
+                  <InstitutionsList />
+                </RequireAuth>
+              }
+            />
             <Route path="/students" element={<StudentsList />} />
             <Route path="/students/:id" element={<StudentDetail />} />
-            <Route path="/import" element={<ImportWizard />} />
-            <Route path="/validation" element={<ValidationWorkbench />} />
-            <Route path="/duplicates" element={<DuplicateWorkbench />} />
-            <Route path="/capacity" element={<CapacityTwin />} />
-            <Route path="/cases" element={<ExceptionCases />} />
-            <Route path="/reports" element={<ReportsHub />} />
-            <Route path="/verification" element={<VerificationHub />} />
-            <Route path="/integrations" element={<IntegrationHealth />} />
-            <Route path="/audit" element={<AuditLog />} />
+            <Route
+              path="/import"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN', 'DATA_OPERATOR']}>
+                  <ImportWizard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/validation"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN', 'DATA_OPERATOR']}>
+                  <ValidationWorkbench />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/duplicates"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN', 'VERIFIER']}>
+                  <DuplicateWorkbench />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/capacity"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN']}>
+                  <CapacityTwin />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/cases"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN', 'DATA_OPERATOR', 'VERIFIER']}>
+                  <ExceptionCases />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN']}>
+                  <ReportsHub />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/verification"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN', 'VERIFIER']}>
+                  <VerificationHub />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/integrations"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN']}>
+                  <IntegrationHealth />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/audit"
+              element={
+                <RequireAuth roles={['PLATFORM_ADMIN', 'INSTITUTION_ADMIN']}>
+                  <AuditLog />
+                </RequireAuth>
+              }
+            />
           </Route>
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Catch-all redirects to /login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

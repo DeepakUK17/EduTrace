@@ -19,18 +19,22 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle session timeouts and common errors
+// Response interceptor to handle session timeouts, 401, and 403 Access Denied
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Don't auto-redirect if we're attempting to login or checking public verify
+    const status = error.response?.status;
+    const errorMsg = String(error.response?.data?.error || '');
+
+    if (status === 401 || status === 403 || errorMsg.toLowerCase().includes('access denied')) {
       const url = error.config?.url || '';
+      // Don't auto-redirect if we're attempting to login or checking public verify
       if (!url.includes('/auth/login') && !url.includes('/verify/')) {
         localStorage.removeItem('edutrace_token');
         localStorage.removeItem('edutrace_user');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login?expired=true';
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          const reason = status === 403 || errorMsg.toLowerCase().includes('access denied') ? 'denied' : 'expired';
+          window.location.href = `/login?${reason}=true`;
         }
       }
     }
