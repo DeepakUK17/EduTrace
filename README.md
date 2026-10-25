@@ -198,5 +198,4 @@ In compliance with SIH guidelines and national data privacy standards:
 ---
 
 ## 👥 Contributors & SIH 2026 Team
-Built for **Smart India Hackathon 2026** • Problem Statement ID: **26263**  
 *Regulation Bureau, All India Council for Technical Education (AICTE)*
