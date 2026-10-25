@@ -1,4 +1,4 @@
-# EduTrace — APAAR ID-Based Student Data Management & Verification Platform
+# EduTrace - APAAR ID-Based Student Data Management & Verification Platform
 **AICTE — Regulation Bureau | Signature: *Predict · Explain · Resolve***
 
 ---
